@@ -1,4 +1,5 @@
-// JMRI_MQTT_mast_001.ino
+// JMRI_MQTT_mast_001
+// mqttSignal12E.ino
 //
 // This code is for proof of concept of using the MQTT protocol, the ESP8266, mosquitto and JMRI.
 // Uses the Arduino IDE to program the ESP8266.

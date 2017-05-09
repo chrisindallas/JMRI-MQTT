@@ -22,7 +22,7 @@
 // This is still the DHCP version. Will add code to use static IP
 // It subscribes to the mast.0001 topic and publishes to the callback topic
 
-#define VERSION  "NodeMCU Signal, ESP8266-12E, 2017.05.04, 0.05"
+#define VERSION  "NodeMCU Signal, ESP8266-12E, 2017.05.09, 0.06"
 #define BAUDRATE         115200
 #define TIMEOUT_DELAY_MS   1000
 
@@ -100,7 +100,6 @@ void setup( ) {
 int loopsNoWifi = 0;
 
 void loop( ) { 
-
   if ( WiFi.status( ) != 3 ) {   // this will kick in 10 seconds after WiFi died
     loopsNoWifi++;
     Serial.println( "!!! oops, Wifi=no !!!" );
@@ -291,8 +290,12 @@ void reconnect( ) {
         setApproach();
         delay( 100 );
         setStop();
-        delay( TIMEOUT_DELAY_MS - 100 );
+        delay( TIMEOUT_DELAY_MS - 100 );        
       } // else
+      if ( WiFi.status( ) != WL_CONNECTED ) {
+        Serial.println( "...no WiFi either." );        
+        break;   // get out, you won't connect without WiFi
+      }
     } // while
   } // if
 } // reconnect()

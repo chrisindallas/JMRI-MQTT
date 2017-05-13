@@ -37,7 +37,7 @@
 
 void callback( char* topic, byte* payload, unsigned int length );
 
-const char* signalTopic = "mast.0001";
+const char* signalTopic = "mast.0002";
 const char* callbackTopic = "callback";
 
 // LED pins on ESP8266-01 GPIO
@@ -126,10 +126,6 @@ void loop( ) {
 } // loop
 
 
-void allOff() {
-  signal.Reset();
-} // allOff()
-
 void callback(  char* topic, byte* payload, unsigned int lengthPayload  ) { 
   //convert topic to string to make it easier to work with
   String topicStr = topic; 
@@ -178,9 +174,9 @@ void reconnect( ) {
     // loop while we wait for connection
     while ( WiFi.status( ) != WL_CONNECTED ) {
       retry++; 
-      allOff();
-      delay( 100 );
       signal.Approach();
+      delay( 100 );
+      signal.Stop();
       delay( TIMEOUT_DELAY_MS - 100 );
       if ( ( retry % 20 ) == 0 ) 
         Serial.print( ".\n" );
@@ -211,7 +207,7 @@ void reconnect( ) {
       } else {  // otherwise print failed for debugging 
         Serial.println( "...Failed." ); 
         //abort( ); 
-        signal.Approach();
+        signal.Clear();
         delay( 100 );
         signal.Stop();
         delay( TIMEOUT_DELAY_MS - 100 );        

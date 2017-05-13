@@ -14,6 +14,9 @@
 // Requires PubSubClient found here: https://github.com/knolleary/pubsubclient
 //
 // ESP8266 Simple MQTT signal controller
+//
+// 06: better WiFi recovery
+// 07: solid yellow on dwarfs for Clear and Approach. TODO: remove all GRNLED from Dwarf, or better, go OOP.
 
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
@@ -22,7 +25,7 @@
 // This is still the DHCP version. Will add code to use static IP
 // It subscribes to the mast.0001 topic and publishes to the callback topic
 
-#define VERSION  "NodeMCU Signal, ESP8266-12E, 2017.05.09, 0.06"
+#define VERSION  "NodeMCU Signal, ESP8266-12E, 2017.05.13, 0.07"
 #define BAUDRATE         115200
 #define TIMEOUT_DELAY_MS   1000
 
@@ -30,8 +33,12 @@
 #define ON         0
 #define OFF        1
 
+// 3 heads or 2 heads
+#define DWARF      1
+
 // If you spend time at two locations?!?
 #define OFFSITE 1
+
 #include "wifiSettings.h"
 // WifiSettings.h should have the following format:
 //   #define MQTT_SERVER "192.168.1.100"
@@ -40,7 +47,7 @@
 
 void callback( char* topic, byte* payload, unsigned int length );
 
-const char* signalTopic = "mast.0001";
+const char* signalTopic = "mast.0003";
 const char* callbackTopic = "callback";
 
 // LEDs on ESP8266 GPIO
@@ -142,7 +149,9 @@ void loop( ) {
 
 
 void allOn() {
-  digitalWrite( GRNLED, ON );
+  if ( !DWARF ) {
+	  digitalWrite( GRNLED, ON );
+  } // if not a dwarf
   digitalWrite( YELLED, ON );
   digitalWrite( REDLED, ON );  
 } // allOn()
@@ -207,16 +216,26 @@ void callback(  char* topic, byte* payload, unsigned int lengthPayload ) {
    Serial.print( "Received: " );
     Serial.print( myString );
   if ( myString == "Approach" ) { 
-    state = S_APPROACH; 
-    BLINK2 = true;
-    digitalWrite( GRNLED, HIGH );
-    digitalWrite( REDLED, HIGH );
+    state = S_APPROACH;
+		if ( DWARF ) {
+      BLINK2 = false;
+			digitalWrite( YELLED, ON );
+    } else {
+      BLINK2 = true;
+	  } // if dwarf
+    digitalWrite( GRNLED, OFF );
+    digitalWrite( REDLED, OFF );
     Serial.println( "...Approach set." );
   } else if ( myString == "Clear" ) {
     state = S_CLEAR;  
     BLINK2 = false;
-    digitalWrite( GRNLED, ON );
-    digitalWrite( YELLED, OFF );
+		if ( DWARF ) {
+      // digitalWrite( GRNLED, OFF );
+      digitalWrite( YELLED, ON );
+    } else {
+      digitalWrite( GRNLED, ON );
+      digitalWrite( YELLED, OFF );
+		} // if dwarf
     digitalWrite( REDLED, OFF );
     Serial.println( "...Clear set." );
   } else if ( myString == "Unlit" ) { 

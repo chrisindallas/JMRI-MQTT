@@ -1,12 +1,12 @@
 // JMRI_MQTT_mast_001
-// mqttSignal12E.ino
+// mqttSignal01.ino
 //
 // This code is for proof of concept of using the MQTT protocol,
 // the ESP8266, mosquitto and JMRI.
 // Uses the Arduino IDE to program the ESP8266.
 //
 // Authors: Chris Atkins, Gert 'Speed' Muller
-// 2017.04.05
+// 2017.04.05, 2017.05.21
 //
 // Based on example code from ItKindaWorks - Creative Commons 2016
 // github.com/ItKindaWorks
@@ -66,7 +66,9 @@ void setup( ) {
   // start the serial line for debugging
   Serial.begin( BAUDRATE );
   delay( 100 );
+  Serial.println( );
   Serial.println( VERSION );
+  Serial.println( signal.version() );
   Serial.println( "STA mode" );    // avoid showing SSID AI-THINKER-xxxxxx
   WiFi.mode( WIFI_STA );  delay( 100 );
 
@@ -121,8 +123,7 @@ void loop( ) {
   // MUST delay to allow ESP8266 WIFI functions to run
   delay( 10 );  
 
-  signal.Update();
-  
+  signal.Update();  
 } // loop
 
 
@@ -174,9 +175,9 @@ void reconnect( ) {
     // loop while we wait for connection
     while ( WiFi.status( ) != WL_CONNECTED ) {
       retry++; 
-      signal.Approach();
+      signal.__middle();
       delay( 100 );
-      signal.Stop();
+      signal.__bottom();
       delay( TIMEOUT_DELAY_MS - 100 );
       if ( ( retry % 20 ) == 0 ) 
         Serial.print( ".\n" );
@@ -207,9 +208,9 @@ void reconnect( ) {
       } else {  // otherwise print failed for debugging 
         Serial.println( "...Failed." ); 
         //abort( ); 
-        signal.Clear();
+        signal.__top();
         delay( 100 );
-        signal.Stop();
+        signal.__bottom();
         delay( TIMEOUT_DELAY_MS - 100 );        
       } // else
       if ( WiFi.status( ) != WL_CONNECTED ) {

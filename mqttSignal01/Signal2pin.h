@@ -4,6 +4,7 @@
 // 2017.05.21
 //
 // Controlling three seperate LEDs in a SignalMast with 2 pins.
+// Vcc->Grn LED->Resistor->GPIO(closest to Vcc, topPin)->Yel LED->Resistor->other GPIO(botPin)->Red LED->Resistor->GND
 // Using a software PWM to fade the previous aspect out and the news one in, by
 // toggling between the two. Tick-Tock ends in Tock, so that is the last move.
 

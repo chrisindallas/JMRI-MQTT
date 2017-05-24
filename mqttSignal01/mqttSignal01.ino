@@ -6,7 +6,7 @@
 // Uses the Arduino IDE to program the ESP8266.
 //
 // Authors: Chris Atkins, Gert 'Speed' Muller
-// 2017.04.05, 2017.05.21
+// 2017.04.05
 //
 // Based on example code from ItKindaWorks - Creative Commons 2016
 // github.com/ItKindaWorks
@@ -14,6 +14,12 @@
 // Requires PubSubClient found here: https://github.com/knolleary/pubsubclient
 //
 // ESP8266 Simple MQTT signal controller
+//
+// 0.07: change Topic in runtime, but the HOSTNAME+SERIALNUM is not changing yet, need 
+//       to re-think this one again...the DHCP server has a copy of the hostname, so might
+//       want to update that, and then EEPROM is needed to store this for next power up too
+//       Maybe the HOSTNAME+SERIALNUM stays unique and fixed, and we only EEPROM the "address" or "topic"?
+//       Last question, is a '.' allowed in a hostname?
 
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
@@ -21,7 +27,8 @@
 // This is still the DHCP version. Will add code to use static IP
 // It subscribes to the mast.0001 topic and publishes to the callback topic
 
-#define VERSION  "NodeMCU Signal, ESP8266-01, 2017.05.12, 0.06"
+#define VERSION     "NodeMCU Signal, ESP8266-01, 2017.05.12, 0.06"
+#define SERIALNUM   "0002"
 #define BAUDRATE         115200
 #define TIMEOUT_DELAY_MS   1000
 
@@ -30,14 +37,16 @@
 #include "wifiSettings.h"
 // WifiSettings.h should have the following format:
 //   #define MQTT_SERVER "192.168.1.100"
-//   #define ssid ssid = "Your_SSID"
-//   #define password = "Your_Password"
+//   #define HOSTNAME    "mast."
+//   #define ssid        "Your_SSID"
+//   #define password    "Your_Password"
 
 #include "Signal2pin.h"
 
 void callback( char* topic, byte* payload, unsigned int length );
 
-const char* signalTopic = "mast.0002";
+// we need to be able to unsubscribe from this, as well as change it during set up...
+String signalTopic; // const char* = "mast.0002"; 
 const char* callbackTopic = "callback";
 
 // LED pins on ESP8266-01 GPIO
@@ -51,6 +60,7 @@ String clientName;
 int x = 0;
 String str;
 String address;
+String myHostname;
 
 //boolean BLINK2 = false;
 
@@ -61,16 +71,21 @@ Signal2pin signal( LED1, LED2 );
 
 void setup( ) { 
   // initialize the signal
-  signal.Reset();
+  signal.Reset( );
 
   // start the serial line for debugging
   Serial.begin( BAUDRATE );
   delay( 100 );
   Serial.println( );
   Serial.println( VERSION );
-  Serial.println( signal.version() );
+  Serial.println( signal.version( ) );
   Serial.println( "STA mode" );    // avoid showing SSID AI-THINKER-xxxxxx
   WiFi.mode( WIFI_STA );  delay( 100 );
+  myHostname = String( HOSTNAME ) + String( SERIALNUM );
+  WiFi.hostname( myHostname ); //.c_str( ) );
+  Serial.println( myHostname );
+  signalTopic = myHostname;
+  //.Serial.println( myHostname.c_str( ) );
 
   //start wifi subsystem
   WiFi.begin( ssid, password );
@@ -81,33 +96,45 @@ void setup( ) {
   //wait a bit before starting the main loop
   delay( 2000 );
   Serial.setTimeout( 2000 );
-} // setup()
+  Serial.println( "\n...setup done" );
+  
+} // setup( )
 
 int loopsNoWifi = 0;
 
 void loop( ) { 
-  if( Serial.available() > 0 ) {
+  if( Serial.available( ) > 0 ) {
     str = Serial.readStringUntil( ':' );
     Serial.print( str );
     Serial.print( ":" );
     address = Serial.readStringUntil( ';' );
     Serial.print( address );
     Serial.println( ";" );
-    x = address.toInt();
-    if ( x > 0 ) {
-      Serial.print( "Will soon subscribe to topic mast." );
-      Serial.println( address );
+    x = address.toInt( );
+    if ( x > 0 ) {      
+      Serial.print( "\nWill now subscribe to topic mast." ); Serial.println( address );
+      if ( ( WiFi.status( ) == WL_CONNECTED ) && ( client.connected( ) ) ) {
+        client.unsubscribe( signalTopic.c_str( ) );
+        delay( 100 );
+        signalTopic = String( HOSTNAME ) + String( address );
+        client.subscribe( signalTopic.c_str( ) );
+        Serial.print( "...subscribed to " ); Serial.println( signalTopic );
+        delay( 100 );
+        signal.__bottom( );
+      } else { // if
+        Serial.println( "\nerr: not connected or not subscribed!" );
+      } // if else
     } else {
       Serial.println( "err: need a number!" );
     } // if address is a number
     Serial.readString( );
-  } // if Serial.available()
+  } // if Serial.available( )
   
   if ( WiFi.status( ) != 3 ) {   // this will kick in 10 seconds after WiFi died
     loopsNoWifi++;
     Serial.println( "!!! oops, Wifi=no !!!" );
     if ( loopsNoWifi == 5 ) {
-      reconnect();
+      reconnect( );
     }
     delay( 1000 );
   }
@@ -123,7 +150,7 @@ void loop( ) {
   // MUST delay to allow ESP8266 WIFI functions to run
   delay( 10 );  
 
-  signal.Update();  
+  signal.Update( );  
 } // loop
 
 
@@ -132,23 +159,23 @@ void callback(  char* topic, byte* payload, unsigned int lengthPayload  ) {
   String topicStr = topic; 
 
   //Print out some debugging info
-  Serial.print( "Topic: " );
+  Serial.print( "\nTopic: " );
   Serial.println( topicStr );
 
   String myString = ( char* )payload;
   myString.remove( lengthPayload );
 
   if ( myString == "Approach" ) { 
-    signal.Approach();
+    signal.Approach( );
     Serial.print( "Expecting Approach, received: " );
   } else if ( myString == "Clear" ) { 
-    signal.Clear();
+    signal.Clear( );
     Serial.print( "Expecting Clear, received: " );
   } else if ( myString == "Unlit" ) { 
-    signal.Unlit();
+    signal.Unlit( );
     Serial.print( "Expecting Unlit, received: " );
   } else if ( myString == "Stop" ) { 
-    signal.Stop();
+    signal.Stop( );
     Serial.print( "Expecting Stop, received: " );
   } else { 
     Serial.print( "Didn't recognize: " );
@@ -175,9 +202,9 @@ void reconnect( ) {
     // loop while we wait for connection
     while ( WiFi.status( ) != WL_CONNECTED ) {
       retry++; 
-      signal.__middle();
+      signal.__middle( );
       delay( 100 );
-      signal.__bottom();
+      signal.__bottom( );
       delay( TIMEOUT_DELAY_MS - 100 );
       if ( ( retry % 20 ) == 0 ) 
         Serial.print( ".\n" );
@@ -196,21 +223,21 @@ void reconnect( ) {
   if ( WiFi.status( ) == WL_CONNECTED ) { 
   // Loop until we're reconnected to the MQTT server
     while ( !client.connected( ) ) { 
-      clientName = "esp8266.01-"+ String( WiFi.localIP( )[ 3 ] );    // +=
+      clientName = myHostname + String( "@" ) + String( WiFi.localIP( )[ 3 ] );
 
       Serial.print( clientName );
-      Serial.print( " Attempting MQTT connection..." );
+      Serial.print( "...attempting MQTT connection..." );
  
       // if connected, subscribe to the topic( s ) we want to be notified about
       if ( client.connect( ( char* ) clientName.c_str( ) ) ) { 
-        Serial.print( "...MQTT Connected" );
-        client.subscribe( signalTopic );
+        Serial.println( "...MQTT Connected" );
+        client.subscribe( signalTopic.c_str( ) );
       } else {  // otherwise print failed for debugging 
         Serial.println( "...Failed." ); 
         //abort( ); 
-        signal.__top();
+        signal.__top( );
         delay( 100 );
-        signal.__bottom();
+        signal.__bottom( );
         delay( TIMEOUT_DELAY_MS - 100 );        
       } // else
       if ( WiFi.status( ) != WL_CONNECTED ) {
@@ -219,4 +246,4 @@ void reconnect( ) {
       }
     } // while
   } // if
-} // reconnect()
+} // reconnect( )
